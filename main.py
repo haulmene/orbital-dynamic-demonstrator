@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 import scipy.spatial
 import math
 
+import time
+
 # Parameters for the Earth and orbit
 earth_radius = 1  # Radius of the Earth (arbitrary units)
 orbit_radius = 2  # Radius of the orbit (arbitrary units)
@@ -53,89 +55,65 @@ def perifocal_to_eci( r, v, Omega_RAAN_degrees, Inclination_degrees, argument_pe
 
     return r_ECI, v_ECI
 
-# View it.
+
+
+
+mu = 3.986004418e14
+e = (30000000 - 20000000)/(30000000 + 20000000)
+a = (30000000 + 20000000) / 2
+Omega_RAAN = 100
+inclination = 80
+omega_argument_perigee = 10
+true_anomaly = 20.0 / 180.0 * np.pi
+
 from mayavi import mlab
 s = mlab.mesh( x, y, z, color= (0.5,0.5,0.5) )
 
-r,v = perifiocal_point( 3.986004418e14, 30000000, 0.002, np.linspace( 0, 360, 360 ) / 180.0 * np.pi  )
-r_ECI, v_ECI = perifocal_to_eci(r,v, 100, 80, 10)
+r,v = perifiocal_point( mu, a, e, np.linspace( 0, 360, 360 ) / 180.0 * np.pi  )
+r_ECI, v_ECI = perifocal_to_eci( r, v, Omega_RAAN, inclination, omega_argument_perigee )
 mlab.plot3d( r_ECI[0], r_ECI[1], r_ECI[2], tube_radius = None, color = (0,0.5,1) )
 
-r2,v2 = perifiocal_point( 3.986004418e14, 20000000, 0.25, np.linspace( 0, 360, 360 ) / 180.0 * np.pi  )
-r2_ECI, v2_ECI = perifocal_to_eci(r2,v2, 100, 80, 10)
-mlab.plot3d( r2_ECI[0], r2_ECI[1], r2_ECI[2], tube_radius = None, color = (1,0.5,0) )
+import ElementsPropagation
+import ElementsConvertion
 
-r2,v2 = perifiocal_point( 3.986004418e14, 30000000, (30000000 - 20000000)/(30000000 + 20000000), np.linspace( 0, 360, 360 ) / 180.0 * np.pi  )
-r2_ECI, v2_ECI = perifocal_to_eci(r2,v2, 100, 80, 10)
-mlab.plot3d( r2_ECI[0], r2_ECI[1], r2_ECI[2], tube_radius = None, color = (0,1,0.5) )
+r1,v1 = perifiocal_point( mu, a, e, [true_anomaly]  )
+r_ECI1, v_ECI1 = perifocal_to_eci(r1,v1, Omega_RAAN, inclination, omega_argument_perigee)
 
-s.scene.background = (1, 1, 1)  # for white
+r2,v2 = perifiocal_point( mu, a, e, [true_anomaly]  )
+r_ECI2, v_ECI2 = perifocal_to_eci(r2,v2, Omega_RAAN, inclination, omega_argument_perigee)
+
+mlab.points3d( r_ECI1[0], r_ECI1[1], r_ECI1[2], 1, color = (0,0,1), scale_factor= 300000 )
+
+
+pts = mlab.points3d( r_ECI2[0], r_ECI2[1], r_ECI2[2], 1, color = (1,0,0), scale_factor= 300000 )
+
+s.scene.background = (1, 1, 1)  # white
+
+
+print( "period: ", ElementsConvertion.period( mu, a ) )
+global time_orbital
+
+time_orbital = 0
+
+@mlab.animate(delay=100)
+def anim():
+    global time_orbital
+    while True:
+        f = mlab.gcf()
+
+        time_orbital += 100*0.1
+
+        true_anomaly2 = ElementsPropagation.PropagateTrueAnomaly(   true_anomaly = true_anomaly,
+                                                                    e = e, 
+                                                                    T_period = ElementsConvertion.period( mu, a ),
+                                                                    delta_time= time_orbital )
+
+        r2,v2 = perifiocal_point( mu, a, e, [true_anomaly2]  )
+        r_ECI2, v_ECI2 = perifocal_to_eci(r2,v2, Omega_RAAN, inclination, omega_argument_perigee)
+        pts.mlab_source.set( x = r_ECI2[0], y = r_ECI2[1], z = r_ECI2[2] )
+
+        print( true_anomaly2 )
+        yield
+
+anim()
 mlab.show()
-
-# import matplotlib.pyplot
-# import numpy as np
-
-# fig = matplotlib.pyplot.figure()
-# ax = fig.add_subplot(projection='3d')
-
-# # Make data
-# u = np.linspace(0, 2 * np.pi, 100)
-# v = np.linspace(0, np.pi, 100)
-# x = 6400000 * np.outer(np.cos(u), np.sin(v))
-# y = 6400000 * np.outer(np.sin(u), np.sin(v))
-# z = 6400000 * np.outer(np.ones(np.size(u)), np.cos(v))
-
-# # Plot the surface
-# ax.plot_surface(x, y, z )
-# ax.plot(  *r_ECI )
-# # Set an equal aspect ratio
-# ax.set_aspect('equal')
-
-# matplotlib.pyplot.show()
-
-# import numpy
-# from mayavi.mlab import *
-
-# def test_plot3d():
-#     """Generates a pretty set of lines."""
-#     n_mer, n_long = 6, 11
-#     dphi = np.pi / 1000.0
-#     phi = np.arange(0.0, 2 * np.pi + 0.5 * dphi, dphi)
-#     mu = phi * n_mer
-#     x = np.cos(mu) * (1 + np.cos(n_long * mu / n_mer) * 0.5)
-#     y = np.sin(mu) * (1 + np.cos(n_long * mu / n_mer) * 0.5)
-#     z = np.sin(n_long * mu / n_mer) * 0.5
-
-#     l = plot3d(x, y, z, np.sin(mu), tube_radius=0, colormap='Spectral')
-#     return l
-# test_plot3d()
-# show()
-# earth = plt.Circle((0, 0), earth_radius, color='blue', label='Earth')
-
-# # Create the orbit
-# theta = np.linspace(0, 2 * np.pi, 100)  # Angle for the orbit
-# x_orbit = orbit_radius * np.cos(theta)
-# y_orbit = orbit_radius * np.sin(theta)
-
-# # Rotate the orbit by the inclination angle
-# inclination_radians = np.radians(inclination_angle)
-# x_orbit_inclined = x_orbit
-# y_orbit_inclined = y_orbit * np.cos(inclination_radians) - x_orbit * np.sin(inclination_radians)
-
-
-
-# # Plotting
-# fig, ax = plt.subplots(figsize=(8, 8))
-# ax.add_artist(earth)
-# ax.plot(x_orbit_inclined, y_orbit_inclined, color='orange', label='Inclined Orbit')
-# ax.set_xlim(-3, 3)
-# ax.set_ylim(-3, 3)
-# ax.set_aspect('equal', adjustable='box')
-# ax.axhline(0, color='gray', lw=0.5, ls='--')
-# ax.axvline(0, color='gray', lw=0.5, ls='--')
-# ax.set_title('Inclined Orbit Around the Earth')
-# ax.set_xlabel('X-axis')
-# ax.set_ylabel('Y-axis')
-# ax.legend()
-# plt.grid()
-# plt.show()
