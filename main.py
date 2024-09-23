@@ -6,7 +6,7 @@ import math
 import time
 
 # Parameters for the Earth and orbit
-earth_radius = 1  # Radius of the Earth (arbitrary units)
+earth_radius = 6_400_000  # Radius of the Earth (arbitrary units)
 orbit_radius = 2  # Radius of the orbit (arbitrary units)
 inclination_angle = 30  # Inclination angle in degrees
 
@@ -55,45 +55,98 @@ def perifocal_to_eci( r, v, Omega_RAAN_degrees, Inclination_degrees, argument_pe
 
     return r_ECI, v_ECI
 
+def calculate_R_perifocal_to_ECI(Omega_RAAN_degrees, Inclination_degrees, argument_periapsis_degrees):
 
+    RZ_omega = scipy.spatial.transform.Rotation.from_rotvec( rotvec=[0,0,Omega_RAAN_degrees], degrees=True)
+    RX_inclination = scipy.spatial.transform.Rotation.from_rotvec( rotvec=[Inclination_degrees,0,0], degrees= True)
+    RZ_argument_periapsis = scipy.spatial.transform.Rotation.from_rotvec( rotvec=[0,0,argument_periapsis_degrees], degrees=True)
 
+    R_perifocal_to_ECI = RZ_omega.as_matrix() @ RX_inclination.as_matrix() @ RZ_argument_periapsis.as_matrix()
 
+    return R_perifocal_to_ECI
+
+# calculating an orbit
+
+ra = 30000000
+rp = 20000000
 mu = 3.986004418e14
-e = (30000000 - 20000000)/(30000000 + 20000000)
-a = (30000000 + 20000000) / 2
-Omega_RAAN = 100
+
+Omega_RAAN = 120
 inclination = 80
 omega_argument_perigee = 10
 true_anomaly = 20.0 / 180.0 * np.pi
+
+e = (ra - rp)/(ra + rp)
+a = (ra + rp) / 2
 
 from mayavi import mlab
 s = mlab.mesh( x, y, z, color= (0.5,0.5,0.5) )
 
 r,v = perifiocal_point( mu, a, e, np.linspace( 0, 360, 360 ) / 180.0 * np.pi  )
 r_ECI, v_ECI = perifocal_to_eci( r, v, Omega_RAAN, inclination, omega_argument_perigee )
+
+R_perifocal_to_ECI = calculate_R_perifocal_to_ECI( Omega_RAAN, inclination, omega_argument_perigee )
+r_periapsis = R_perifocal_to_ECI @ np.array([ a * (1 - e ), 0, 0 ])
+r_apoapsis = R_perifocal_to_ECI @ np.array([ -a * (1 + e ), 0, 0 ])
+
+# node line
+h = np.cross( r_ECI[:, 0] , v_ECI[:, 0] )
+nodes = np.cross( h , [0, 0, 1] )
+nodes = nodes / np.linalg.norm( nodes )
+
+# draw whole orbit 
 mlab.plot3d( r_ECI[0], r_ECI[1], r_ECI[2], tube_radius = None, color = (0,0.5,1) )
+# mlab.plot3d( r[0], r[1], r[2], tube_radius = None, color = (0,0.7,1) )
+# draw apse line
+mlab.plot3d( [r_periapsis[0], r_apoapsis[0]], [r_periapsis[1], r_apoapsis[1]], [r_periapsis[2], r_apoapsis[2]],  tube_radius = None, color = (0,0.5,1), )
+
+# draw the equator
+r_equator, v_equator = perifiocal_point( mu, earth_radius, 0, np.linspace( 0, 360, 360 ) / 180.0 * np.pi  )
+mlab.plot3d( r_equator[0], r_equator[1], r_equator[2], tube_radius = None, color = (0.7,0.5,0))
+
+# draw the equator plane
+grid_1, grid_2 = np.mgrid[0:2, 0:2]
+mlab.mesh( 10 * earth_radius * ( 0.5 - grid_1 ), 10 * earth_radius * ( 0.5 - grid_2 ) , [[0,0],[0,0]], opacity = 0.2 )
+
+# draw node line
+mlab.plot3d( [-ra * nodes[0], ra * nodes[0]], [-ra * nodes[1], ra * nodes[1]], [-ra * nodes[2], ra * nodes[2] ], tube_radius = None, color = (0.7,0.2,0.2), )
+
+# draw vernal equinox
+mlab.plot3d( [0, 5 * earth_radius ], [0, 0], [0, 0 ], tube_radius = None, color = (0.2,0.7,0.2), )
+
+# draw frame
+mlab.plot3d( [0, 0 ], [-5 * earth_radius, 5 * earth_radius], [ 0, 0 ], tube_radius = None, color = (0.7,0.7,0.7), )
+mlab.plot3d( [0, 0 ], [0, 0], [ -5 * earth_radius, 5 * earth_radius ], tube_radius = None, color = (0.7,0.7,0.7), )
 
 import ElementsPropagation
 import ElementsConvertion
 
-r1,v1 = perifiocal_point( mu, a, e, [true_anomaly]  )
-r_ECI1, v_ECI1 = perifocal_to_eci(r1,v1, Omega_RAAN, inclination, omega_argument_perigee)
+true_anomaly_start = true_anomaly
+r_start,v_start = perifiocal_point( mu, a, e, [true_anomaly_start]  )
+r_ECI_start, v_ECI_start = perifocal_to_eci(r_start, v_start, Omega_RAAN, inclination, omega_argument_perigee)
 
-r2,v2 = perifiocal_point( mu, a, e, [true_anomaly]  )
-r_ECI2, v_ECI2 = perifocal_to_eci(r2,v2, Omega_RAAN, inclination, omega_argument_perigee)
+# radius vector
+mlab.plot3d( [0, r_ECI_start[0][0] ], [0, r_ECI_start[1][0] ], [ 0, r_ECI_start[2][0] ], tube_radius = None, color = (0.2,0.2,0.2), )
 
-mlab.points3d( r_ECI1[0], r_ECI1[1], r_ECI1[2], 1, color = (0,0,1), scale_factor= 300000 )
+r_current,v_current = perifiocal_point( mu, a, e, [true_anomaly_start]  )
+r_ECI_current, v_ECI_current = perifocal_to_eci(r_current,v_current, Omega_RAAN, inclination, omega_argument_perigee)
 
+# satellite start
+mlab.points3d( r_ECI_start[0], r_ECI_start[1], r_ECI_start[2], 1, color = (0,0,1), scale_factor= 800000 )
 
-pts = mlab.points3d( r_ECI2[0], r_ECI2[1], r_ECI2[2], 1, color = (1,0,0), scale_factor= 300000 )
+# satellite flight
+pts = mlab.points3d( r_ECI_current[0], r_ECI_current[1], r_ECI_current[2], 1, color = (1,0,0), scale_factor= 800000 )
 
 s.scene.background = (1, 1, 1)  # white
 
 
 print( "period: ", ElementsConvertion.period( mu, a ) )
+
 global time_orbital
 
 time_orbital = 0
+
+# animate orbital motion
 
 @mlab.animate(delay=100)
 def anim():
@@ -103,16 +156,16 @@ def anim():
 
         time_orbital += 100*0.1
 
-        true_anomaly2 = ElementsPropagation.PropagateTrueAnomaly(   true_anomaly = true_anomaly,
+        true_anomaly_current = ElementsPropagation.PropagateTrueAnomaly(   true_anomaly = true_anomaly,
                                                                     e = e, 
                                                                     T_period = ElementsConvertion.period( mu, a ),
                                                                     delta_time= time_orbital )
 
-        r2,v2 = perifiocal_point( mu, a, e, [true_anomaly2]  )
-        r_ECI2, v_ECI2 = perifocal_to_eci(r2,v2, Omega_RAAN, inclination, omega_argument_perigee)
-        pts.mlab_source.set( x = r_ECI2[0], y = r_ECI2[1], z = r_ECI2[2] )
+        r_current, v_current = perifiocal_point( mu, a, e, [true_anomaly_current]  )
+        r_ECI_current, v_ECI_current = perifocal_to_eci(r_current,v_current, Omega_RAAN, inclination, omega_argument_perigee)
+        pts.mlab_source.set( x = r_ECI_current[0], y = r_ECI_current[1], z = r_ECI_current[2] )
 
-        print( true_anomaly2 )
+        print( true_anomaly_current )
         yield
 
 anim()
