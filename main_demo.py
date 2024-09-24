@@ -87,6 +87,8 @@ s = mlab.mesh( x, y, z, color= (0.5,0.5,0.5) )
 # v_ECI = np.array([-299.6592399981582, -1153.5907820138782, 4742.937819067031])
 r_ECI = np.array([-10265508.28871291,  14266052.74092895,   9965375.59516136])
 v_ECI = np.array([  440.14817962, -2266.16768951,  4264.26141223])
+#119.9999999999735 79.99999999995487 9.999999999774763 0.1999999999987604 24999999.999956783 0.3500381786769686
+#
 # R_perifocal_to_ECI = calculate_R_perifocal_to_ECI( Omega_RAAN, inclination, omega_argument_perigee )
 # r_periapsis = R_perifocal_to_ECI @ np.array([ a * (1 - e ), 0, 0 ])
 # r_apoapsis = R_perifocal_to_ECI @ np.array([ -a * (1 + e ), 0, 0 ])
@@ -107,11 +109,11 @@ r_equator, v_equator = perifiocal_point( mu, earth_radius, 0, np.linspace( 0, 36
 mlab.plot3d( r_equator[0], r_equator[1], r_equator[2], tube_radius = None, color = (0.7,0.5,0))
 
 # draw the equator plane
-grid_1, grid_2 = np.mgrid[0:2, 0:2]
-mlab.mesh( 10 * earth_radius * ( 0.5 - grid_1 ), 10 * earth_radius * ( 0.5 - grid_2 ) , [[0,0],[0,0]], opacity = 0.2 )
+# grid_1, grid_2 = np.mgrid[0:2, 0:2]
+# mlab.mesh( 10 * earth_radius * ( 0.5 - grid_1 ), 10 * earth_radius * ( 0.5 - grid_2 ) , [[0,0],[0,0]], opacity = 0.2 )
 
 # draw vernal equinox
-mlab.plot3d( [0, 5 * earth_radius ], [0, 0], [0, 0 ], tube_radius = None, color = (0.2,0.7,0.2), )
+# mlab.plot3d( [0, 5 * earth_radius ], [0, 0], [0, 0 ], tube_radius = None, color = (0.2,0.7,0.2), )
 
 # draw frame
 # mlab.plot3d( [0, 0 ], [-5 * earth_radius, 5 * earth_radius], [ 0, 0 ], tube_radius = None, color = (0.7,0.7,0.7), )
@@ -154,16 +156,16 @@ r,v = perifiocal_point( mu, semi_major_axis, eccentricity, np.linspace( 0, 360, 
 r_ECI_orbit, v_ECI_orbit = perifocal_to_eci( r, v, Omega_RAAN * 180 /np.pi, inclination * 180 /np.pi, omega_argument_perigee * 180 /np.pi)
 
 # draw orbit trajectory
-mlab.plot3d( r_ECI_orbit[0], r_ECI_orbit[1], r_ECI_orbit[2], tube_radius = None, color = (0,0.5,1) )
+# mlab.plot3d( r_ECI_orbit[0], r_ECI_orbit[1], r_ECI_orbit[2], tube_radius = None, color = (0,0.5,1) )
 
 # draw node line
-mlab.plot3d( [-2 * semi_major_axis * nodes[0], 2 * semi_major_axis * nodes[0]], [-2 * semi_major_axis * nodes[1], 2 * semi_major_axis * nodes[1]], [-2 * semi_major_axis * nodes[2], 2 * semi_major_axis * nodes[2] ], tube_radius = None, color = (0.7,0.2,0.2), )
+# mlab.plot3d( [-2 * semi_major_axis * nodes[0], 2 * semi_major_axis * nodes[0]], [-2 * semi_major_axis * nodes[1], 2 * semi_major_axis * nodes[1]], [-2 * semi_major_axis * nodes[2], 2 * semi_major_axis * nodes[2] ], tube_radius = None, color = (0.7,0.2,0.2), )
 
 # draw radius vector
 # mlab.plot3d( [0, r_ECI_start[0] ], [0, r_ECI_start[1] ], [ 0, r_ECI_start[2] ], tube_radius = None, color = (0.2,0.2,0.2), )
 
 # draw apse line
-mlab.plot3d( [r_periapsis[0], r_apoapsis[0]], [r_periapsis[1], r_apoapsis[1]], [r_periapsis[2], r_apoapsis[2]],  tube_radius = None, color = (0,0.5,1), )
+# mlab.plot3d( [r_periapsis[0], r_apoapsis[0]], [r_periapsis[1], r_apoapsis[1]], [r_periapsis[2], r_apoapsis[2]],  tube_radius = None, color = (0,0.5,1), )
 
 # propagate
 
