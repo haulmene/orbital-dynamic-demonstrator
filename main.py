@@ -5,10 +5,14 @@ import math
 
 import time
 
+from J2AnalyticalPertrubations import Omega_RAAN_derivative, omega_argument_perigee_derivative
+
 # Parameters for the Earth and orbit
-earth_radius = 6_400_000  # Radius of the Earth (arbitrary units)
+earth_radius = 6_378_150  # Radius of the Earth (arbitrary units)
 orbit_radius = 2  # Radius of the orbit (arbitrary units)
 inclination_angle = 30  # Inclination angle in degrees
+J2 = 1082.64e-6
+mu = 3.986004418e14
 
 # Create the Earth
 def create_sphere(radius, resolution):
@@ -69,11 +73,15 @@ def calculate_R_perifocal_to_ECI(Omega_RAAN_degrees, Inclination_degrees, argume
 
 ra = 30000000
 rp = 20000000
-mu = 3.986004418e14
 
+
+global Omega_RAAN
 Omega_RAAN = 120
+global inclination
 inclination = 80
+global omega_argument_perigee
 omega_argument_perigee = 10
+global true_anomaly
 true_anomaly = 20.0 / 180.0 * np.pi
 
 e = (ra - rp)/(ra + rp)
@@ -95,7 +103,11 @@ nodes = np.cross( h , [0, 0, 1] )
 nodes = nodes / np.linalg.norm( nodes )
 
 # draw whole orbit 
+orbi_dynamic = mlab.plot3d( r_ECI[0], r_ECI[1], r_ECI[2], tube_radius = None, color = (0.5,0.0,1) )
+
+# draw whole orbit 
 mlab.plot3d( r_ECI[0], r_ECI[1], r_ECI[2], tube_radius = None, color = (0,0.5,1) )
+
 # mlab.plot3d( r[0], r[1], r[2], tube_radius = None, color = (0,0.7,1) )
 # draw apse line
 mlab.plot3d( [r_periapsis[0], r_apoapsis[0]], [r_periapsis[1], r_apoapsis[1]], [r_periapsis[2], r_apoapsis[2]],  tube_radius = None, color = (0,0.5,1), )
@@ -150,22 +162,46 @@ time_orbital = 0
 
 @mlab.animate(delay=100)
 def anim():
-    global time_orbital
+    global time_orbital, Omega_RAAN, omega_argument_perigee
     while True:
         f = mlab.gcf()
-
-        time_orbital += 100*0.1
+        
+        delta_t = 10000
+        time_orbital += delta_t
 
         true_anomaly_current = ElementsPropagation.PropagateTrueAnomaly(   true_anomaly = true_anomaly,
                                                                     e = e, 
                                                                     T_period = ElementsConvertion.period( mu, a ),
                                                                     delta_time= time_orbital )
 
-        r_current, v_current = perifiocal_point( mu, a, e, [true_anomaly_current]  )
-        r_ECI_current, v_ECI_current = perifocal_to_eci(r_current,v_current, Omega_RAAN, inclination, omega_argument_perigee)
+        dOmega_RAAN_dt = Omega_RAAN_derivative( J2=J2, R_Earth= earth_radius, mu_earth= mu, a=a, e = e, i = inclination / 180 * math.pi )
+        domega_argument_periapsis_dt = omega_argument_perigee_derivative(  J2=J2, R_Earth= earth_radius, mu_earth= mu, a=a, e = e, i = inclination / 180 * math.pi )
+
+        Omega_RAAN_new = Omega_RAAN / 180 * math.pi + dOmega_RAAN_dt * delta_t
+        omega_argument_perigee_new  = omega_argument_perigee / 180 * math.pi + domega_argument_periapsis_dt * delta_t
+
+        #account for argument perigee change
+        true_anomaly_new = true_anomaly_current - domega_argument_periapsis_dt * delta_t
+
+
+        r_current, v_current = perifiocal_point( mu, a, e, [true_anomaly_new]  )
+        r_ECI_current, v_ECI_current = perifocal_to_eci(r_current,v_current, Omega_RAAN_new / math.pi * 180, inclination, omega_argument_perigee_new / math.pi * 180 )
         pts.mlab_source.set( x = r_ECI_current[0], y = r_ECI_current[1], z = r_ECI_current[2] )
 
+        Omega_RAAN              = Omega_RAAN_new / math.pi * 180
+        omega_argument_perigee  = omega_argument_perigee_new / math.pi * 180
+
+        #orbit 
+        r,v = perifiocal_point( mu, a, e, np.linspace( 0, 360, 360 ) / 180.0 * np.pi  )
+        r_ECI, v_ECI = perifocal_to_eci( r, v, Omega_RAAN_new / math.pi * 180, inclination, omega_argument_perigee_new / math.pi * 180 )
+        orbi_dynamic.mlab_source.reset( x = r_ECI[0], y = r_ECI[1], z = r_ECI[2] )
+
         print( true_anomaly_current )
+        print( "dOmega", dOmega_RAAN_dt * delta_t )
+        print( "domega", domega_argument_periapsis_dt * delta_t )
+        print( "Omega", Omega_RAAN )
+        print( "omega", omega_argument_perigee )
+
         yield
 
 anim()
